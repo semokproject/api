@@ -2,7 +2,7 @@
 
 namespace Semok\Api\AmazonProduct;
 
-use Log;
+use SemokLog;
 use Exception;
 use Semok\Api\AmazonProduct\Exceptions\RequestException;
 use Semok\Api\AmazonProduct\Exceptions\LimitException;
@@ -11,50 +11,26 @@ class AmazonProduct
 {
 	private $urlBuilder = null;
 	private $config = null;
-	private $itemSearchOptions, $itemSearchFilter;
+	private $filter;
+	private $itemSearchOptions;
+	private $itemLookupOptions;
 
 	// Valid names that can be used for search
-	private $mValidSearchNames = array(
-		'All',
-		'Apparel',
-		'Appliances',
-		'Automotive',
-		'Baby',
-		'Beauty',
-		'Blended',
-		'Books',
-		'Classical',
-		'DVD',
-		'Electronics',
-		'Grocery',
-		'HealthPersonalCare',
-		'HomeGarden',
-		'HomeImprovement',
-		'Jewelry',
-		'KindleStore',
-		'Kitchen',
-		'Lighting',
-		'Marketplace',
-		'MP3Downloads',
-		'Music',
-		'MusicTracks',
-		'MusicalInstruments',
-		'OfficeProducts',
-		'OutdoorLiving',
-		'Outlet',
-		'PetSupplies',
-		'PCHardware',
-		'Shoes',
-		'Software',
-		'SoftwareVideoGames',
-		'SportingGoods',
-		'Tools',
-		'Toys',
-		'VHS',
-		'Video',
-		'VideoGames',
-		'Watches'
-	);
+	private $mValidSearchNames = [
+		'All',					'Apparel',				'Appliances',
+		'Automotive',			'Baby',					'Beauty',
+		'Blended',				'Books',				'Classical',
+		'DVD',					'Electronics',			'Grocery',
+		'HealthPersonalCare',	'HomeGarden',			'HomeImprovement',
+		'Jewelry',				'KindleStore',			'Kitchen',
+		'Lighting',				'Marketplace',			'MP3Downloads',
+		'Music',				'MusicTracks',			'MusicalInstruments',
+		'OfficeProducts',		'OutdoorLiving',		'Outlet',
+		'PetSupplies',			'PCHardware',			'Shoes',
+		'Software',				'SoftwareVideoGames',	'SportingGoods',
+		'Tools',				'Toys',					'VHS',
+		'Video',				'VideoGames',			'Watches'
+	];
 
     public function __construct()
     {
@@ -100,7 +76,7 @@ class AmazonProduct
 	public function itemSearch($keyword, $options = null, $filter = null) {
 		$this->keyword = $keyword;
         $this->itemSearchOptions = $options;
-        $this->itemSearchFilter = $filter;
+        $this->filter = $filter;
 		$this->prepareItemSearchRequest();
 		$this->urlBuilder = $this->urlBuilder();
 		$results = $this->makeAndParseRequest($this->itemSearchOptions);
@@ -109,15 +85,14 @@ class AmazonProduct
 		if (isset($results['Items']['Item']['ASIN'])) {
 			$results['Items']['Item'] = [$results['Items']['Item']];
 		}
-		$items = [];
-		if ($this->itemSearchFilter) {
+		if ($this->filter) {
 			$items = [];
 			foreach ($results['Items']['Item'] as $content) {
 				try {
-                    $result = call_user_func_array($this->itemSearchFilter, [$content]);
+                    $result = (app()->make($this->filter))->runItemSearchFilter($content);
                     if ($result) $items[] = $result;
                 } catch (Exception $e) {
-                    Log::info('AmazonProductApi Apply Filter: ' . $e->getMessage());
+                    SemokLog::file('api')->error('AmazonProductApi: Apply Filter: ' . $e->getMessage());
                 }
 			}
 			if (empty($items)) {
@@ -142,15 +117,14 @@ class AmazonProduct
 			$results['Items']['Item'] = [$results['Items']['Item']];
 		}
 
-		$items = [];
-		if ($this->itemLookupFilter) {
+		if ($this->filter) {
 			$items = [];
 			foreach ($results['Items']['Item'] as $content) {
 				try {
-                    $result = call_user_func_array($this->itemLookupFilter, [$content]);
+					$result = (app()->make($this->filter))->runItemLookupFilter($content);
                     if ($result) $items[] = $result;
                 } catch (Exception $e) {
-                    Log::info('AmazonProductApi Apply Filter: ' . $e->getMessage());
+                    SemokLog::file('api')->error('AmazonProductApi: Apply Filter: ' . $e->getMessage());
                 }
 			}
 			if (empty($items)) {
@@ -169,8 +143,8 @@ class AmazonProduct
         } else {
             $this->itemSearchOptions = $this->config['itemSearchOptions'];
         }
-        if (!$this->itemSearchFilter && $this->config['itemSearchFilter']) {
-            $this->itemSearchFilter = $this->config['itemSearchFilter'];
+        if (!$this->filter && $this->config['filter']) {
+            $this->filter = $this->config['filter'];
         }
 
 		$this->itemSearchOptions['Keywords'] = $this->keyword;
@@ -190,8 +164,8 @@ class AmazonProduct
         } else {
             $this->itemLookupOptions = $this->config['itemLookupOptions'];
         }
-        if (!$this->itemLookupFilter && $this->config['itemLookupFilter']) {
-            $this->itemLookupFilter = $this->config['itemLookupFilter'];
+        if (!$this->filter && $this->config['filter']) {
+            $this->filter = $this->config['filter'];
         }
 
 		$this->itemLookupOptions['ItemId'] = $this->asinList;
