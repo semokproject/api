@@ -4,7 +4,7 @@
     'secret_key' => 'FjmfU1d9MgZGHCdOOZdQdsMCiXy1kigzCSYNFxZC',
     'associate_tag' => 'satu-21',
     'random_api' => false,
-    'filter' => Semok\Api\AmazonProduct\Filter\BaseFilter::class,
+    'filter' => Semok\Api\BaseFilter::class,
     'itemSearchOptions' => [
         'Operation' => 'ItemSearch',
         'ResponseGroup' => 'ItemAttributes,BrowseNodes,Similarities,EditorialReview,Images',
